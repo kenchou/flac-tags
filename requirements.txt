@@ -7,4 +7,4 @@ click == 7.1.2
 mutagen == 1.45.1
 
 # flac-tags/flac-tag.py: 5
-opencc == 1.1.2
+opencc == 1.1.1
