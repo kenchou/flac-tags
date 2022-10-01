@@ -2,22 +2,30 @@
 
 import click
 import mutagen
-import opencc
 import re
 
 from pathlib import Path
+from StarCC import PresetConversion
+
+
+def do_nothing(s):
+    return s
 
 
 @click.command()
 @click.argument('files', nargs=-1)
 @click.option('--update-tag/--no-update-tag', is_flag=True, help='convert tag Chinese (S->T)')
 @click.option('--split-artist/--no-split-artist', is_flag=True, help='split artist tag with delimiters ,/;&')
-@click.option('-c', '--chinese-convert', type=click.Choice(['none', 's2t', 't2s'], case_sensitive=False),
-              help='convert tag Chinese. available values: s2t, t2s')
+@click.option('-cc', '--chinese-convert', type=(str, str), help='convert tag Chinese. from, to. '
+                                                                'eg. -cc tw cn. '
+                                                                'available values: st, cn, hk, tw, cnt, jp')
 @click.option('--rename', 'rename', is_flag=True, help='rename file with format "%artist% - %title%"')
 def fix_tag(files, update_tag, split_artist, chinese_convert, rename):
-    cc_cfg = f'{chinese_convert}.json' if chinese_convert else 't2s.json'
-    han = opencc.OpenCC(cc_cfg)
+    if chinese_convert is None:
+        han_convert = do_nothing
+    else:
+        cc_from, cc_to = chinese_convert
+        han_convert = PresetConversion(src=cc_from, dst=cc_to, with_phrase=False)
 
     delimiters = re.compile('[,;&/]')
     for filename in files:
@@ -32,13 +40,12 @@ def fix_tag(files, update_tag, split_artist, chinese_convert, rename):
         for k in audio:
             new_tags = audio[k]
             if isinstance(new_tags, str):
-                new_tags = han.convert(new_tags)
+                new_tags = han_convert(new_tags)
             elif isinstance(new_tags, list):
                 new_tags = []
                 for old_tag in audio[k]:
                     new_tag = old_tag
-                    if chinese_convert:
-                        new_tag = han.convert(new_tag)
+                    new_tag = han_convert(new_tag)
                     if 'ARTIST' == k.upper() and delimiters.search(new_tag):
                         if split_artist:
                             new_tag = [x.strip() for x in delimiters.split(new_tag)]
